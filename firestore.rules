@@ -1,0 +1,35 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+    function isAdmin() {
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+    match /stadiums/{stadiumId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    match /matches/{matchId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    match /intents/{intentId} {
+      allow read, write: if isSignedIn();
+    }
+    match /attendances/{attendanceId} {
+      allow read, write: if isSignedIn();
+    }
+    match /achievements/{achievementId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+  }
+}

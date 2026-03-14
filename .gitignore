@@ -1,0 +1,28 @@
+# Flutter
+.dart_tool/
+.packages
+build/
+*.iml
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Firebase (не коммитить секреты)
+**/google-services.json
+**/GoogleService-Info.plist
+**/firebase_options.dart
+*.jks
+*.keystore
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.*

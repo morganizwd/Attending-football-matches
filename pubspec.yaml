@@ -1,0 +1,45 @@
+name: attending_football_matches
+description: Учёт посещения футбольных матчей по геопозиции.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+  # Firebase
+  firebase_core: ^3.8.1
+  firebase_auth: ^5.3.4
+  cloud_firestore: ^5.5.1
+  # Геолокация
+  geolocator: ^13.0.2
+  geocoding: ^3.0.0
+  # Уведомления
+  flutter_local_notifications: ^18.0.1
+  timezone: ^0.9.4
+  # Состояние и навигация
+  provider: ^6.1.2
+  go_router: ^14.6.2
+  # UI
+  flutter_svg: ^2.0.10+1
+  cached_network_image: ^3.4.1
+  # Карта: OpenStreetMap (бесплатно, без API-ключа)
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+  intl: ^0.20.2
+  uuid: ^4.5.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/

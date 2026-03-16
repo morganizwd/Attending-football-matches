@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:attending_football_matches/services/auth_service.dart';
 import 'package:attending_football_matches/services/theme_service.dart';
+import 'package:attending_football_matches/services/text_scale_service.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -10,6 +11,7 @@ class ProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthService>();
     final theme = context.watch<ThemeService>();
+    final textScale = context.watch<TextScaleService>();
     final user = auth.currentUser;
     final profile = auth.profile;
 
@@ -101,6 +103,13 @@ class ProfileScreen extends StatelessWidget {
                           title: const Text('Тема приложения'),
                           subtitle: Text(_themeLabel(theme.mode)),
                           onTap: () => _showThemeSheet(context, theme),
+                        ),
+                        const Divider(height: 1),
+                        ListTile(
+                          leading: const Icon(Icons.text_fields),
+                          title: const Text('Размер шрифта'),
+                          subtitle: Text('${(textScale.factor * 100).round()}%'),
+                          onTap: () => _showTextScaleSheet(context),
                         ),
                         const Divider(height: 1),
                         ListTile(
@@ -240,6 +249,56 @@ class ProfileScreen extends StatelessWidget {
                 },
               ),
             ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showTextScaleSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) {
+        final service = ctx.watch<TextScaleService>();
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('Размер шрифта', style: Theme.of(ctx).textTheme.titleLarge),
+                const SizedBox(height: 6),
+                Text(
+                  'Применяется ко всему приложению',
+                  style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                      ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Text('A', style: Theme.of(ctx).textTheme.bodySmall),
+                    Expanded(
+                      child: Slider(
+                        value: service.factor,
+                        min: 0.85,
+                        max: 1.25,
+                        divisions: 8,
+                        label: '${(service.factor * 100).round()}%',
+                        onChanged: (v) => service.setFactor(v),
+                      ),
+                    ),
+                    Text('A', style: Theme.of(ctx).textTheme.titleMedium),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                FilledButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Готово'),
+                ),
+              ],
+            ),
           ),
         );
       },

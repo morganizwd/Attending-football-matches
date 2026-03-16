@@ -15,6 +15,8 @@ class MatchesAdminScreen extends StatefulWidget {
 class _MatchesAdminScreenState extends State<MatchesAdminScreen> {
   final _firestore = FirebaseFirestore.instance;
   List<Stadium> _stadiums = [];
+  bool _showUpcoming = true;
+  bool _showFinished = false;
 
   @override
   void initState() {
@@ -31,70 +33,142 @@ class _MatchesAdminScreenState extends State<MatchesAdminScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Матчи')),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: _firestore.collection(FirestoreCollections.matches).orderBy('startTime', descending: true).snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) return Center(child: Text('Ошибка: ${snapshot.error}'));
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-          final docs = snapshot.data!.docs;
-          final dateFormat = DateFormat('dd.MM.yyyy HH:mm');
-          if (docs.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.sports_soccer, size: 64),
-                  const SizedBox(height: 16),
-                  const Text('Нет матчей'),
-                  const SizedBox(height: 24),
-                  FilledButton.icon(
-                    onPressed: () => _showMatchForm(context),
-                    icon: const Icon(Icons.add),
-                    label: const Text('Добавить матч'),
-                  ),
-                ],
-              ),
-            );
-          }
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: docs.length,
-            itemBuilder: (context, i) {
-              final m = MatchModel.fromFirestore(docs[i]);
-              Stadium? stadium;
-              try {
-                stadium = _stadiums.firstWhere((s) => s.id == m.stadiumId);
-              } catch (_) {}
-              return Card(
-                margin: const EdgeInsets.only(bottom: 12),
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                    child: const Icon(Icons.sports_soccer),
-                  ),
-                  title: Text(m.title),
-                  subtitle: Text('${dateFormat.format(m.startTime)} • ${stadium?.name ?? m.stadiumId}'),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit),
-                        onPressed: () => _showMatchForm(
-                          context,
-                          match: MatchModel.fromFirestore(docs[i], stadium: stadium),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: Wrap(
+              spacing: 8,
+              children: [
+                FilterChip(
+                  label: const Text('Предстоящие / идущие'),
+                  selected: _showUpcoming,
+                  onSelected: (v) => setState(() => _showUpcoming = v),
+                ),
+                FilterChip(
+                  label: const Text('Завершённые'),
+                  selected: _showFinished,
+                  onSelected: (v) => setState(() => _showFinished = v),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: _firestore.collection(FirestoreCollections.matches).orderBy('startTime', descending: true).snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) return Center(child: Text('Ошибка: ${snapshot.error}'));
+                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+                final allDocs = snapshot.data!.docs;
+                final now = DateTime.now();
+                final docs = allDocs.where((d) {
+                  final m = MatchModel.fromFirestore(d);
+                  final start = m.startTime;
+                  final end = start.add(const Duration(minutes: minutesAfterMatchStart));
+                  final isOngoing = !now.isBefore(start) && !now.isAfter(end);
+                  final isFuture = now.isBefore(start);
+                  final isPastDone = now.isAfter(end);
+                  final upcoming = isFuture || isOngoing;
+                  if (_showUpcoming && ! _showFinished) return upcoming;
+                  if (_showFinished && ! _showUpcoming) return isPastDone;
+                  if (_showUpcoming && _showFinished) return true;
+                  // если ничего не выбрано, показываем всё
+                  return true;
+                }).toList();
+
+                final dateFormat = DateFormat('dd.MM.yyyy HH:mm');
+                if (docs.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.sports_soccer, size: 64),
+                        const SizedBox(height: 16),
+                        const Text('Нет матчей'),
+                        const SizedBox(height: 24),
+                        FilledButton.icon(
+                          onPressed: () => _showMatchForm(context),
+                          icon: const Icon(Icons.add),
+                          label: const Text('Добавить матч'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                return ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: docs.length,
+                  itemBuilder: (context, i) {
+                    final m = MatchModel.fromFirestore(docs[i]);
+                    Stadium? stadium;
+                    try {
+                      stadium = _stadiums.firstWhere((s) => s.id == m.stadiumId);
+                    } catch (_) {}
+                    final start = m.startTime;
+                    final end = start.add(const Duration(minutes: minutesAfterMatchStart));
+                    final isOngoing = !now.isBefore(start) && !now.isAfter(end);
+                    final isFuture = now.isBefore(start);
+                    final isPastDone = now.isAfter(end);
+                    String status;
+                    if (isOngoing) {
+                      status = 'Идёт сейчас';
+                    } else if (isFuture) {
+                      status = 'Предстоящий';
+                    } else if (isPastDone) {
+                      status = 'Завершён';
+                    } else {
+                      status = 'Матч';
+                    }
+
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                          child: const Icon(Icons.sports_soccer),
+                        ),
+                        title: Text(m.title),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('${dateFormat.format(m.startTime)} • ${stadium?.name ?? m.stadiumId}'),
+                            const SizedBox(height: 4),
+                            Text(
+                              status,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: isOngoing
+                                        ? Theme.of(context).colorScheme.tertiary
+                                        : isFuture
+                                            ? Theme.of(context).colorScheme.primary
+                                            : Theme.of(context).colorScheme.onSurfaceVariant,
+                                  ),
+                            ),
+                          ],
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit),
+                              onPressed: () => _showMatchForm(
+                                context,
+                                match: MatchModel.fromFirestore(docs[i], stadium: stadium),
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete),
+                              onPressed: () => _deleteMatch(context, m.id),
+                            ),
+                          ],
                         ),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.delete),
-                        onPressed: () => _deleteMatch(context, m.id),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          );
-        },
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showMatchForm(context),

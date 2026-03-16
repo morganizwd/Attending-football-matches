@@ -49,7 +49,7 @@ class AttendanceService extends ChangeNotifier {
       }
       result.add(MatchModel.fromFirestore(doc, stadium: stadium));
     }
-    var filtered = result.where((m) => m.startTime.isAfter(DateTime.now())).toList();
+    var filtered = List<MatchModel>.from(result);
     if (query != null && query.isNotEmpty) {
       final lower = query.toLowerCase();
       filtered = filtered.where((m) =>

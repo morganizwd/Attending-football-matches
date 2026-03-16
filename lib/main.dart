@@ -12,6 +12,7 @@ import 'package:attending_football_matches/services/location_service.dart';
 import 'package:attending_football_matches/services/attendance_service.dart';
 import 'package:attending_football_matches/services/notification_service.dart';
 import 'package:attending_football_matches/services/theme_service.dart';
+import 'package:attending_football_matches/services/text_scale_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -42,15 +43,25 @@ class AttendingFootballMatchesApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AttendanceService()),
         ChangeNotifierProvider(create: (_) => NotificationService()..init()),
         ChangeNotifierProvider(create: (_) => ThemeService()),
+        ChangeNotifierProvider(create: (_) => TextScaleService()..init()),
       ],
-      child: Consumer<ThemeService>(
-        builder: (context, theme, _) {
+      child: Consumer2<ThemeService, TextScaleService>(
+        builder: (context, theme, textScale, _) {
           return MaterialApp(
             title: 'Посещение матчей',
             debugShowCheckedModeBanner: false,
             theme: AppTheme.light,
             darkTheme: AppTheme.dark,
             themeMode: theme.mode,
+            builder: (context, child) {
+              final media = MediaQuery.of(context);
+              return MediaQuery(
+                data: media.copyWith(
+                  textScaler: TextScaler.linear(textScale.factor),
+                ),
+                child: child ?? const SizedBox.shrink(),
+              );
+            },
             home: const AppShell(),
           );
         },

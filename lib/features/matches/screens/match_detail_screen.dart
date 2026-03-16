@@ -90,8 +90,9 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
     }
     setState(() => _checkingLocation = true);
     final location = context.read<LocationService>();
-    final recorded = await attendance.checkAndRecordAttendance(uid, widget.match, location);
-    if (mounted) {
+    try {
+      final recorded = await attendance.checkAndRecordAttendance(uid, widget.match, location);
+      if (!mounted) return;
       setState(() => _checkingLocation = false);
       if (recorded) {
         setState(() => _hasAttendance = true);
@@ -101,6 +102,12 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
           SnackBar(content: Text(location.error ?? 'Вы не в радиусе стадиона (${stadiumProximityMeters.toInt()} м)')),
         );
       }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _checkingLocation = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Не удалось проверить геолокацию: $e')),
+      );
     }
   }
 

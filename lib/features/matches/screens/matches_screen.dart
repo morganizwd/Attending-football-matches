@@ -5,6 +5,7 @@ import 'package:attending_football_matches/services/attendance_service.dart';
 import 'package:attending_football_matches/models/match_model.dart';
 import 'package:attending_football_matches/features/matches/screens/match_detail_screen.dart';
 import 'package:intl/intl.dart';
+import 'package:attending_football_matches/core/constants.dart';
 
 class MatchesScreen extends StatefulWidget {
   const MatchesScreen({super.key});
@@ -60,22 +61,30 @@ class _MatchesScreenState extends State<MatchesScreen> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Матчи'),
-        actions: [
-          if (_leagueFilter != null)
-            IconButton(
-              icon: const Icon(Icons.filter_alt_off),
-              tooltip: 'Сбросить фильтры',
-              onPressed: () {
-                setState(() => _leagueFilter = null);
-                _load();
-              },
-            ),
-        ],
-      ),
-      body: Container(
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Матчи'),
+          actions: [
+            if (_leagueFilter != null)
+              IconButton(
+                icon: const Icon(Icons.filter_alt_off),
+                tooltip: 'Сбросить фильтры',
+                onPressed: () {
+                  setState(() => _leagueFilter = null);
+                  _load();
+                },
+              ),
+          ],
+          bottom: const TabBar(
+            tabs: [
+              Tab(text: 'Предстоящие'),
+              Tab(text: 'Прошедшие'),
+            ],
+          ),
+        ),
+        body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -87,9 +96,9 @@ class _MatchesScreenState extends State<MatchesScreen> {
             ],
           ),
         ),
-        child: Column(
-          children: [
-            Padding(
+          child: Column(
+            children: [
+              Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
               child: Card(
                 child: Padding(
@@ -118,8 +127,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
                   ),
                 ),
               ),
-            ),
-            Padding(
+              ),
+              Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Wrap(
                 spacing: 8,
@@ -139,55 +148,84 @@ class _MatchesScreenState extends State<MatchesScreen> {
                   ),
                 ],
               ),
-            ),
-            if (_loading)
-              const Expanded(child: Center(child: CircularProgressIndicator()))
-            else if (_matches.isEmpty)
+              ),
               Expanded(
-                child: Center(
-                  child: Card(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 26),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
+                child: _loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : TabBarView(
                         children: [
-                          Icon(Icons.sports_soccer, size: 72, color: colorScheme.outline),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Нет предстоящих матчей',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Добавьте матчи в разделе Админ',
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                          ),
+                          _buildMatchesList(context, upcoming: true),
+                          _buildMatchesList(context, upcoming: false),
                         ],
                       ),
-                    ),
-                  ),
-                ),
-              )
-            else
-              Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-                  itemCount: _matches.length,
-                  itemBuilder: (context, i) {
-                    final m = _matches[i];
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: _MatchCard(match: m, onTap: () => _openDetail(m)),
-                    );
-                  },
-                ),
               ),
-          ],
+            ],
+          ),
         ),
       ),
+    );
+  }
+
+  Widget _buildMatchesList(BuildContext context, {required bool upcoming}) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final now = DateTime.now();
+
+    final matches = _matches;
+    final filtered = matches.where((m) {
+      final start = m.startTime;
+      final end = start.add(const Duration(minutes: minutesAfterMatchStart));
+      final isOngoing = !now.isBefore(start) && !now.isAfter(end);
+      final isFuture = now.isBefore(start);
+      final isPastDone = now.isAfter(end);
+      if (upcoming) {
+        return isFuture || isOngoing;
+      } else {
+        return isPastDone;
+      }
+    }).toList()
+      ..sort((a, b) => a.startTime.compareTo(b.startTime));
+
+    if (filtered.isEmpty) {
+      return Center(
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 26),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.sports_soccer, size: 72, color: colorScheme.outline),
+                const SizedBox(height: 16),
+                Text(
+                  upcoming ? 'Нет предстоящих матчей' : 'Пока нет завершённых матчей',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                if (upcoming) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Добавьте матчи в разделе Админ',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+      itemCount: filtered.length,
+      itemBuilder: (context, i) {
+        final m = filtered[i];
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: _MatchCard(match: m, onTap: () => _openDetail(m)),
+        );
+      },
     );
   }
 
@@ -210,9 +248,10 @@ class _MatchCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final now = DateTime.now();
-    final isToday = match.startTime.year == now.year &&
-        match.startTime.month == now.month &&
-        match.startTime.day == now.day;
+    final start = match.startTime;
+    final end = start.add(const Duration(minutes: minutesAfterMatchStart));
+    final isToday = start.year == now.year && start.month == now.month && start.day == now.day;
+    final isOngoing = !now.isBefore(start) && !now.isAfter(end);
 
     final stadiumImage = match.stadium?.imageUrl;
 
@@ -300,13 +339,21 @@ class _MatchCard extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: isToday ? colorScheme.secondary : Colors.white.withOpacity(0.18),
+                              color: isOngoing
+                                  ? colorScheme.tertiary
+                                  : isToday
+                                      ? colorScheme.secondary
+                                      : Colors.white.withOpacity(0.18),
                               borderRadius: BorderRadius.circular(999),
                             ),
                             child: Text(
-                              isToday ? 'Сегодня' : DateFormat('dd MMM').format(match.startTime),
+                              isOngoing
+                                  ? 'Идёт сейчас'
+                                  : isToday
+                                      ? 'Сегодня'
+                                      : DateFormat('dd MMM').format(match.startTime),
                               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                    color: isToday ? colorScheme.onSecondary : Colors.white,
+                                    color: isOngoing || isToday ? colorScheme.onSecondary : Colors.white,
                                     fontWeight: FontWeight.w700,
                                   ),
                             ),

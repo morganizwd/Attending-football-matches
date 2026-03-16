@@ -127,13 +127,20 @@ class AttendanceService extends ChangeNotifier {
         .where('matchId', isEqualTo: matchId)
         .get();
     if (existing.docs.isNotEmpty) return;
-    await _firestore.collection(FirestoreCollections.attendances).add({
+    final batch = _firestore.batch();
+    final attendanceRef = _firestore.collection(FirestoreCollections.attendances).doc();
+    batch.set(attendanceRef, {
       'userId': userId,
       'matchId': matchId,
       'verifiedAt': Timestamp.now(),
       'latitude': lat,
       'longitude': lon,
     });
+    final userRef = _firestore.collection(FirestoreCollections.users).doc(userId);
+    batch.update(userRef, {
+      'attendanceCount': FieldValue.increment(1),
+    });
+    await batch.commit();
     notifyListeners();
   }
 

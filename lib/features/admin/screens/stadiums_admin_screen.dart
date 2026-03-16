@@ -12,57 +12,155 @@ class StadiumsAdminScreen extends StatefulWidget {
 
 class _StadiumsAdminScreenState extends State<StadiumsAdminScreen> {
   final _firestore = FirebaseFirestore.instance;
+  final TextEditingController _searchController = TextEditingController();
+  String _query = '';
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Стадионы')),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: _firestore.collection(FirestoreCollections.stadiums).orderBy('name').snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) return Center(child: Text('Ошибка: ${snapshot.error}'));
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-          final docs = snapshot.data!.docs;
-          if (docs.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.stadium, size: 64),
-                  const SizedBox(height: 16),
-                  const Text('Нет стадионов'),
-                  const SizedBox(height: 24),
-                  FilledButton.icon(
-                    onPressed: () => _showStadiumForm(context),
-                    icon: const Icon(Icons.add),
-                    label: const Text('Добавить стадион'),
-                  ),
-                ],
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Поиск по названию или городу',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _query.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _query = '');
+                        },
+                      ),
               ),
-            );
-          }
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: docs.length,
-            itemBuilder: (context, i) {
-              final stadium = Stadium.fromFirestore(docs[i]);
-              return Card(
-                margin: const EdgeInsets.only(bottom: 8),
-                child: ListTile(
-                  title: Text(stadium.name),
-                  subtitle: Text(stadium.city ?? stadium.address ?? ''),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(icon: const Icon(Icons.edit), onPressed: () => _showStadiumForm(context, stadium: stadium)),
-                      IconButton(icon: const Icon(Icons.delete), onPressed: () => _deleteStadium(context, stadium.id)),
-                    ],
-                  ),
-                ),
-              );
-            },
-          );
-        },
+              onChanged: (value) => setState(() => _query = value.trim().toLowerCase()),
+            ),
+          ),
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: _firestore.collection(FirestoreCollections.stadiums).orderBy('name').snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) return Center(child: Text('Ошибка: ${snapshot.error}'));
+                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+                var docs = snapshot.data!.docs;
+                if (_query.isNotEmpty) {
+                  docs = docs.where((d) {
+                    final s = Stadium.fromFirestore(d);
+                    final name = s.name.toLowerCase();
+                    final city = (s.city ?? '').toLowerCase();
+                    return name.contains(_query) || city.contains(_query);
+                  }).toList();
+                }
+                if (docs.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.stadium, size: 64),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Стадионы не найдены',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          _query.isEmpty ? 'Добавьте первый стадион' : 'Попробуйте изменить запрос',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                return ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: docs.length,
+                  itemBuilder: (context, i) {
+                    final stadium = Stadium.fromFirestore(docs[i]);
+                    final imageUrl = stadium.imageUrl;
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 14),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(16),
+                              child: SizedBox(
+                                width: 96,
+                                height: 96,
+                                child: imageUrl == null || imageUrl.isEmpty
+                                    ? Container(
+                                        color: Theme.of(context).colorScheme.surfaceVariant,
+                                        child: const Icon(Icons.stadium, size: 40),
+                                      )
+                                    : Image.network(
+                                        imageUrl,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, _, __) => Container(
+                                          color: Theme.of(context).colorScheme.surfaceVariant,
+                                          child: const Icon(Icons.broken_image_outlined, size: 40),
+                                        ),
+                                      ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    stadium.name,
+                                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  if (stadium.city != null || stadium.address != null)
+                                    Text(
+                                      stadium.city ?? stadium.address ?? '',
+                                      style: Theme.of(context).textTheme.bodySmall,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'lat: ${stadium.latitude.toStringAsFixed(5)}, lon: ${stadium.longitude.toStringAsFixed(5)}',
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.edit),
+                                  onPressed: () => _showStadiumForm(context, stadium: stadium),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete),
+                                  onPressed: () => _deleteStadium(context, stadium.id),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showStadiumForm(context),
@@ -77,6 +175,8 @@ class _StadiumsAdminScreenState extends State<StadiumsAdminScreen> {
     final addressController = TextEditingController(text: stadium?.address ?? '');
     final latController = TextEditingController(text: stadium != null ? '${stadium.latitude}' : '');
     final lonController = TextEditingController(text: stadium != null ? '${stadium.longitude}' : '');
+    final imageUrlController = TextEditingController(text: stadium?.imageUrl ?? '');
+    final mapImageUrlController = TextEditingController(text: stadium?.mapImageUrl ?? '');
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -90,11 +190,41 @@ class _StadiumsAdminScreenState extends State<StadiumsAdminScreen> {
             children: [
               Text(stadium == null ? 'Новый стадион' : 'Редактировать стадион', style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.35),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Text(
+                  'Добавьте фото стадиона и схему трибун для наглядности на экране матча.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+              const SizedBox(height: 12),
               TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Название *')),
               const SizedBox(height: 12),
               TextField(controller: cityController, decoration: const InputDecoration(labelText: 'Город')),
               const SizedBox(height: 12),
               TextField(controller: addressController, decoration: const InputDecoration(labelText: 'Адрес')),
+              const SizedBox(height: 12),
+              TextField(
+                controller: imageUrlController,
+                decoration: const InputDecoration(
+                  labelText: 'URL фото стадиона',
+                  helperText: 'Ссылка на изображение (например, из хостинга картинок)',
+                ),
+                keyboardType: TextInputType.url,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: mapImageUrlController,
+                decoration: const InputDecoration(
+                  labelText: 'URL карты стадиона',
+                  helperText: 'Схема трибун / план стадиона',
+                ),
+                keyboardType: TextInputType.url,
+              ),
               const SizedBox(height: 12),
               Row(
                 children: [
@@ -113,12 +243,18 @@ class _StadiumsAdminScreenState extends State<StadiumsAdminScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Заполните название и координаты')));
                     return;
                   }
+                  final rawImageUrl = imageUrlController.text.trim();
+                  final imageUrl = rawImageUrl.isEmpty ? null : rawImageUrl;
+                  final rawMapImageUrl = mapImageUrlController.text.trim();
+                  final mapImageUrl = rawMapImageUrl.isEmpty ? null : rawMapImageUrl;
                   final data = {
                     'name': name,
                     'city': cityController.text.trim().isEmpty ? null : cityController.text.trim(),
                     'address': addressController.text.trim().isEmpty ? null : addressController.text.trim(),
                     'latitude': lat,
                     'longitude': lon,
+                    'imageUrl': imageUrl,
+                    'mapImageUrl': mapImageUrl,
                   };
                   if (stadium != null) {
                     await _firestore.collection(FirestoreCollections.stadiums).doc(stadium.id).update(data);

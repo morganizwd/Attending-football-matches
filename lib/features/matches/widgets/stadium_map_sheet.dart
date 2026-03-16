@@ -10,6 +10,10 @@ class StadiumMapSheet {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (context) => DraggableScrollableSheet(
         initialChildSize: 0.6,
         minChildSize: 0.3,
@@ -18,15 +22,28 @@ class StadiumMapSheet {
         builder: (context, scrollController) => Column(
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Text(
-                stadium.name,
-                style: Theme.of(context).textTheme.titleLarge,
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+              child: Column(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 10),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                  Text(
+                    stadium.name,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ],
               ),
             ),
             Expanded(
               child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
                 child: FlutterMap(
                   options: MapOptions(
                     initialCenter: point,

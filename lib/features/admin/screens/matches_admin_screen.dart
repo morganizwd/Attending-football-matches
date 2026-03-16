@@ -66,13 +66,29 @@ class _MatchesAdminScreenState extends State<MatchesAdminScreen> {
                 stadium = _stadiums.firstWhere((s) => s.id == m.stadiumId);
               } catch (_) {}
               return Card(
-                margin: const EdgeInsets.only(bottom: 8),
+                margin: const EdgeInsets.only(bottom: 12),
                 child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                    child: const Icon(Icons.sports_soccer),
+                  ),
                   title: Text(m.title),
                   subtitle: Text('${dateFormat.format(m.startTime)} • ${stadium?.name ?? m.stadiumId}'),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.edit),
-                    onPressed: () => _showMatchForm(context, match: MatchModel.fromFirestore(docs[i], stadium: stadium)),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit),
+                        onPressed: () => _showMatchForm(
+                          context,
+                          match: MatchModel.fromFirestore(docs[i], stadium: stadium),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete),
+                        onPressed: () => _deleteMatch(context, m.id),
+                      ),
+                    ],
                   ),
                 ),
               );
@@ -92,6 +108,8 @@ class _MatchesAdminScreenState extends State<MatchesAdminScreen> {
     final homeController = TextEditingController(text: match?.homeTeam ?? '');
     final awayController = TextEditingController(text: match?.awayTeam ?? '');
     final leagueController = TextEditingController(text: match?.league ?? '');
+    final homeLogoController = TextEditingController(text: match?.homeTeamLogo ?? '');
+    final awayLogoController = TextEditingController(text: match?.awayTeamLogo ?? '');
     String? selectedStadiumId = match?.stadiumId.isEmpty == true ? null : match?.stadiumId;
     if (selectedStadiumId == null && _stadiums.isNotEmpty) selectedStadiumId = _stadiums.first.id;
 
@@ -110,9 +128,47 @@ class _MatchesAdminScreenState extends State<MatchesAdminScreen> {
                 children: [
                   Text(match == null ? 'Новый матч' : 'Редактировать матч', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.35),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Text(
+                      'Заполните команды, логотипы и дату матча.',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   TextField(controller: homeController, decoration: const InputDecoration(labelText: 'Хозяева *')),
                   const SizedBox(height: 12),
                   TextField(controller: awayController, decoration: const InputDecoration(labelText: 'Гости *')),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: homeLogoController,
+                          decoration: const InputDecoration(
+                            labelText: 'URL эмблемы хозяев',
+                            helperText: 'Опционально, ссылка на изображение',
+                          ),
+                          keyboardType: TextInputType.url,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: awayLogoController,
+                          decoration: const InputDecoration(
+                            labelText: 'URL эмблемы гостей',
+                            helperText: 'Опционально',
+                          ),
+                          keyboardType: TextInputType.url,
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 12),
                   TextField(controller: leagueController, decoration: const InputDecoration(labelText: 'Лига')),
                   const SizedBox(height: 12),
@@ -143,9 +199,13 @@ class _MatchesAdminScreenState extends State<MatchesAdminScreen> {
                         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Заполните команды и стадион')));
                         return;
                       }
+                      final homeLogo = homeLogoController.text.trim().isEmpty ? null : homeLogoController.text.trim();
+                      final awayLogo = awayLogoController.text.trim().isEmpty ? null : awayLogoController.text.trim();
                       final data = {
                         'homeTeam': home,
                         'awayTeam': away,
+                        'homeTeamLogo': homeLogo,
+                        'awayTeamLogo': awayLogo,
                         'league': leagueController.text.trim().isEmpty ? null : leagueController.text.trim(),
                         'stadiumId': selectedStadiumId,
                         'startTime': Timestamp.fromDate(date),
@@ -167,5 +227,22 @@ class _MatchesAdminScreenState extends State<MatchesAdminScreen> {
         },
       ),
     );
+  }
+
+  Future<void> _deleteMatch(BuildContext context, String id) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Удалить матч?'),
+        content: const Text('Матч будет удалён без возможности восстановления. Продолжить?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Отмена')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Удалить')),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await _firestore.collection(FirestoreCollections.matches).doc(id).delete();
+    }
   }
 }

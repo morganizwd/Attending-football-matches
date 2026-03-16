@@ -5,8 +5,11 @@ class Achievement {
   final String title;
   final String description;
   final String iconId;
+  final String? iconUrl;
   final int requiredCount;
-  final String type; // 'matches', 'stadiums', 'teams', etc.
+  final String type; // 'matches_total', 'matches_same_stadium', 'matches_same_team'
+  final String? stadiumId;
+  final String? teamName;
 
   const Achievement({
     required this.id,
@@ -15,6 +18,9 @@ class Achievement {
     required this.iconId,
     required this.requiredCount,
     required this.type,
+    this.iconUrl,
+    this.stadiumId,
+    this.teamName,
   });
 
   factory Achievement.fromFirestore(DocumentSnapshot doc) {
@@ -25,7 +31,10 @@ class Achievement {
       description: map['description'] as String? ?? '',
       iconId: map['iconId'] as String? ?? 'trophy',
       requiredCount: map['requiredCount'] as int? ?? 1,
-      type: map['type'] as String? ?? 'matches',
+      type: map['type'] as String? ?? 'matches_total',
+      iconUrl: map['iconUrl'] as String?,
+      stadiumId: map['stadiumId'] as String?,
+      teamName: map['teamName'] as String?,
     );
   }
 
@@ -35,5 +44,8 @@ class Achievement {
         'iconId': iconId,
         'requiredCount': requiredCount,
         'type': type,
+        'iconUrl': iconUrl,
+        'stadiumId': stadiumId,
+        'teamName': teamName,
       };
 }

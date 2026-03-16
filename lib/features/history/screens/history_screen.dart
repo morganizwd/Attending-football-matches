@@ -58,6 +58,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     if (_loading) {
       return Scaffold(
         appBar: AppBar(title: const Text('История посещений')),
@@ -69,24 +70,29 @@ class _HistoryScreenState extends State<HistoryScreen> {
       appBar: AppBar(title: const Text('История посещений')),
       body: _attendances.isEmpty
           ? Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.history, size: 64, color: Theme.of(context).colorScheme.outline),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Пока нет посещённых матчей',
-                    style: Theme.of(context).textTheme.titleMedium,
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.history, size: 64, color: colorScheme.outline),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Пока нет посещённых матчей',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Отметьте намерение и придите на стадион в день матча',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Отметьте намерение и придите на стадион в день матча',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                  ),
-                ],
+                ),
               ),
             )
           : ListView.builder(
@@ -96,14 +102,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 final a = _attendances[i];
                 final m = _matchCache[a.matchId];
                 return Card(
-                  margin: const EdgeInsets.only(bottom: 12),
+                  margin: const EdgeInsets.only(bottom: 14),
                   child: ListTile(
                     leading: CircleAvatar(
-                      backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                      child: Icon(Icons.sports_soccer, color: Theme.of(context).colorScheme.onPrimaryContainer),
+                      backgroundColor: colorScheme.primaryContainer,
+                      child: Icon(Icons.sports_soccer, color: colorScheme.onPrimaryContainer),
                     ),
                     title: Text(m?.title ?? 'Матч #${a.matchId}'),
                     subtitle: Text('Подтверждено: ${dateFormat.format(a.verifiedAt)}'),
+                    trailing: Icon(Icons.check_circle, color: colorScheme.tertiary),
                   ),
                 );
               },

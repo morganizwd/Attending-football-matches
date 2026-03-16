@@ -19,6 +19,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final isAdmin = context.watch<AuthService>().isAdmin;
     final tabs = <Widget>[
       const MatchesScreen(),
@@ -50,14 +51,34 @@ class _HomeScreenState extends State<HomeScreen> {
         index: _index.clamp(0, currentTabs.length - 1),
         children: currentTabs,
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: List.generate(
-          currentTabs.length,
-          (i) => NavigationDestination(
-            icon: Icon(currentIcons[i]),
-            label: currentLabels[i],
+      bottomNavigationBar: SafeArea(
+        top: false,
+        minimum: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: colorScheme.outlineVariant.withOpacity(0.45)),
+            boxShadow: [
+              BoxShadow(
+                color: colorScheme.shadow.withOpacity(0.06),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: NavigationBar(
+            height: 74,
+            selectedIndex: _index,
+            onDestinationSelected: (i) => setState(() => _index = i),
+            destinations: List.generate(
+              currentTabs.length,
+              (i) => NavigationDestination(
+                icon: Icon(currentIcons[i]),
+                selectedIcon: Icon(currentIcons[i], size: 22),
+                label: currentLabels[i],
+              ),
+            ),
           ),
         ),
       ),

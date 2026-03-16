@@ -9,6 +9,7 @@ class Stadium {
   final String? address;
   final String? imageUrl;
   final String? description;
+  final String? mapImageUrl;
 
   const Stadium({
     required this.id,
@@ -19,6 +20,7 @@ class Stadium {
     this.address,
     this.imageUrl,
     this.description,
+    this.mapImageUrl,
   });
 
   factory Stadium.fromFirestore(DocumentSnapshot doc) {
@@ -32,6 +34,7 @@ class Stadium {
       address: map['address'] as String?,
       imageUrl: map['imageUrl'] as String?,
       description: map['description'] as String?,
+      mapImageUrl: map['mapImageUrl'] as String?,
     );
   }
 
@@ -43,5 +46,6 @@ class Stadium {
         'address': address,
         'imageUrl': imageUrl,
         'description': description,
+        'mapImageUrl': mapImageUrl,
       };
 }

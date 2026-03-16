@@ -7,6 +7,7 @@ class UserProfile {
   final String? photoUrl;
   final bool isAdmin;
   final DateTime? createdAt;
+  final int attendanceCount;
 
   const UserProfile({
     required this.id,
@@ -15,6 +16,7 @@ class UserProfile {
     this.photoUrl,
     this.isAdmin = false,
     this.createdAt,
+    this.attendanceCount = 0,
   });
 
   factory UserProfile.fromFirestore(DocumentSnapshot doc) {
@@ -27,6 +29,7 @@ class UserProfile {
       photoUrl: map['photoUrl'] as String?,
       isAdmin: map['isAdmin'] as bool? ?? false,
       createdAt: ts?.toDate(),
+      attendanceCount: (map['attendanceCount'] as int?) ?? 0,
     );
   }
 
@@ -36,5 +39,6 @@ class UserProfile {
         'photoUrl': photoUrl,
         'isAdmin': isAdmin,
         'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : null,
+        'attendanceCount': attendanceCount,
       };
 }

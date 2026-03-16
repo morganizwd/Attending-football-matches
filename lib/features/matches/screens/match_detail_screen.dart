@@ -108,6 +108,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
   Widget build(BuildContext context) {
     final m = widget.match;
     final dateFormat = DateFormat('dd.MM.yyyy HH:mm');
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Матч')),
@@ -119,50 +120,138 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        children: [
-                          if (m.league != null && m.league!.isNotEmpty)
-                            Text(m.league!, style: Theme.of(context).textTheme.labelLarge?.copyWith(color: Theme.of(context).colorScheme.primary)),
-                          const SizedBox(height: 12),
-                          Text(
-                            '${m.homeTeam} — ${m.awayTeam}',
-                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 16),
-                          ListTile(
-                            leading: const Icon(Icons.calendar_today),
-                            title: const Text('Дата и время'),
-                            subtitle: Text(dateFormat.format(m.startTime)),
-                          ),
-                          if (m.stadium != null) ...[
-                            ListTile(
-                              leading: const Icon(Icons.place),
-                              title: Text(m.stadium!.name),
-                              subtitle: Text(m.stadium!.address ?? m.stadium!.city ?? ''),
-                              trailing: IconButton(
-                                icon: const Icon(Icons.map),
-                                onPressed: () => StadiumMapSheet.show(context, m.stadium!),
-                              ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (m.stadium?.imageUrl != null && m.stadium!.imageUrl!.isNotEmpty)
+                          SizedBox(
+                            height: 220,
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                Image.network(
+                                  m.stadium!.imageUrl!,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, _, __) => Container(
+                                    color: colorScheme.surfaceVariant,
+                                    child: const Icon(Icons.stadium_outlined, size: 48),
+                                  ),
+                                ),
+                                Container(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [
+                                        Colors.black.withOpacity(0.2),
+                                        Colors.black.withOpacity(0.65),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                Positioned(
+                                  left: 18,
+                                  right: 18,
+                                  bottom: 16,
+                                  child: Text(
+                                    '${m.homeTeam} — ${m.awayTeam}',
+                                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                          fontWeight: FontWeight.w800,
+                                          color: Colors.white,
+                                        ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ],
-                      ),
+                          ),
+                        Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            children: [
+                              if (m.league != null && m.league!.isNotEmpty)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: colorScheme.primaryContainer,
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text(
+                                    m.league!,
+                                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                                          color: colorScheme.onPrimaryContainer,
+                                        ),
+                                      ),
+                                ),
+                              const SizedBox(height: 12),
+                              if (m.stadium?.imageUrl == null || m.stadium!.imageUrl!.isEmpty)
+                                Text(
+                                  '${m.homeTeam} — ${m.awayTeam}',
+                                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                                  textAlign: TextAlign.center,
+                                ),
+                              const SizedBox(height: 16),
+                              ListTile(
+                                leading: const Icon(Icons.calendar_today),
+                                title: const Text('Дата и время'),
+                                subtitle: Text(dateFormat.format(m.startTime)),
+                              ),
+                              if (m.stadium != null) ...[
+                                ListTile(
+                                  leading: const Icon(Icons.place),
+                                  title: Text(m.stadium!.name),
+                                  subtitle: Text(m.stadium!.address ?? m.stadium!.city ?? ''),
+                                  trailing: IconButton(
+                                    icon: const Icon(Icons.map),
+                                    onPressed: () => StadiumMapSheet.show(context, m.stadium!),
+                                  ),
+                                ),
+                                if (m.stadium!.mapImageUrl != null && m.stadium!.mapImageUrl!.isNotEmpty) ...[
+                                  const SizedBox(height: 8),
+                                  Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      'Карта стадиона',
+                                      style: Theme.of(context).textTheme.titleMedium,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(16),
+                                    child: AspectRatio(
+                                      aspectRatio: 4 / 3,
+                                      child: Image.network(
+                                        m.stadium!.mapImageUrl!,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, _, __) => Container(
+                                          color: colorScheme.surfaceVariant,
+                                          child: const Center(
+                                            child: Icon(Icons.broken_image_outlined, size: 40),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 16),
                   if (_hasAttendance)
                     Card(
-                      color: Theme.of(context).colorScheme.primaryContainer,
-                      child: const Padding(
-                        padding: EdgeInsets.all(16),
+                      color: colorScheme.tertiaryContainer,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
                         child: Row(
                           children: [
-                            Icon(Icons.check_circle, color: Colors.green, size: 32),
-                            SizedBox(width: 12),
-                            Expanded(
+                            Icon(Icons.check_circle, color: colorScheme.tertiary, size: 32),
+                            const SizedBox(width: 12),
+                            const Expanded(
                               child: Text('Посещение засчитано. Матч в вашей истории.'),
                             ),
                           ],
@@ -175,7 +264,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
                       icon: _hasIntent ? const Icon(Icons.cancel) : const Icon(Icons.check_circle_outline),
                       label: Text(_hasIntent ? 'Отменить намерение' : 'Планирую посетить'),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
                     OutlinedButton.icon(
                       onPressed: _checkingLocation ? null : _checkLocationNow,
                       icon: _checkingLocation ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.my_location),

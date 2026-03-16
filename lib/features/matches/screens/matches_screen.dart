@@ -121,7 +121,9 @@ class _MatchesScreenState extends State<MatchesScreen> {
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
                 children: [
                   FilterChip(
                     label: const Text('Только мои матчи'),
@@ -131,7 +133,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
                       _load();
                     },
                   ),
-                  const SizedBox(width: 8),
                   Chip(
                     avatar: const Icon(Icons.calendar_month_outlined, size: 18),
                     label: Text('Найдено: ${_matches.length}'),

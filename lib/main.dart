@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
+import 'package:attending_football_matches/core/env_loader.dart';
 import 'package:attending_football_matches/app.dart';
 import 'package:attending_football_matches/core/theme.dart';
 import 'package:attending_football_matches/firebase_options.dart';
@@ -16,6 +17,7 @@ import 'package:attending_football_matches/services/text_scale_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await loadDotEnv();
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
@@ -23,12 +25,26 @@ void main() async {
     DeviceOrientation.landscapeRight,
   ]);
   await initializeDateFormatting('ru');
+  await _initializeFirebase();
+  runApp(const AttendingFootballMatchesApp());
+}
+
+Future<void> _initializeFirebase() async {
   if (kIsWeb) {
     await Firebase.initializeApp(options: DefaultFirebaseOptions.web);
-  } else {
-    await Firebase.initializeApp();
+    return;
   }
-  runApp(const AttendingFootballMatchesApp());
+
+  try {
+    await Firebase.initializeApp();
+  } on FirebaseException catch (e) {
+    if (e.code == 'not-initialized') {
+      // Desktop fallback: this project currently stores only web Firebase options.
+      await Firebase.initializeApp(options: DefaultFirebaseOptions.web);
+      return;
+    }
+    rethrow;
+  }
 }
 
 class AttendingFootballMatchesApp extends StatelessWidget {

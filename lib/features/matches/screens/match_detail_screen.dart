@@ -4,8 +4,11 @@ import 'package:attending_football_matches/services/auth_service.dart';
 import 'package:attending_football_matches/services/attendance_service.dart';
 import 'package:attending_football_matches/services/location_service.dart';
 import 'package:attending_football_matches/services/notification_service.dart';
+import 'package:attending_football_matches/services/venue_geocode_service.dart';
 import 'package:attending_football_matches/models/match_model.dart';
+import 'package:attending_football_matches/models/match_source.dart';
 import 'package:attending_football_matches/features/matches/widgets/stadium_map_sheet.dart';
+import 'package:attending_football_matches/features/matches/widgets/seat_views_section.dart';
 import 'package:intl/intl.dart';
 import 'package:attending_football_matches/core/constants.dart';
 
@@ -19,24 +22,46 @@ class MatchDetailScreen extends StatefulWidget {
 }
 
 class _MatchDetailScreenState extends State<MatchDetailScreen> {
+  late MatchModel _match;
   bool _hasIntent = false;
   bool _hasAttendance = false;
   bool _loading = true;
   bool _intentLoading = false;
   bool _checkingLocation = false;
+  bool _resolvingVenue = false;
 
   @override
   void initState() {
     super.initState();
+    _match = widget.match;
+    _resolveVenueIfNeeded();
     _loadState();
+  }
+
+  /// Подставляем координаты арены через геокодинг, если нет Firestore-стадиона.
+  Future<void> _resolveVenueIfNeeded() async {
+    if (_match.effectiveStadium != null) return;
+    setState(() => _resolvingVenue = true);
+    final resolved = await VenueGeocodeService.resolveForMatch(_match);
+    if (!mounted) return;
+    setState(() {
+      _resolvingVenue = false;
+      _match = _match.copyWith(
+        stadium: resolved.stadium,
+        venueLat: resolved.stadium?.latitude,
+        venueLng: resolved.stadium?.longitude,
+        venueImageUrl: resolved.imageUrl,
+        venueResolveStatus: resolved.status,
+      );
+    });
   }
 
   Future<void> _loadState() async {
     final uid = context.read<AuthService>().currentUser?.uid;
     if (uid == null) return;
     final attendance = context.read<AttendanceService>();
-    final hasIntent = await attendance.hasIntent(uid, widget.match.id);
-    final hasAttendance = await attendance.hasAttendance(uid, widget.match.id);
+    final hasIntent = await attendance.hasIntent(uid, _match.id);
+    final hasAttendance = await attendance.hasAttendance(uid, _match.id);
     if (mounted) {
       setState(() {
         _hasIntent = hasIntent;
@@ -53,15 +78,15 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
     final attendance = context.read<AttendanceService>();
     final notifications = context.read<NotificationService>();
     if (_hasIntent) {
-      await attendance.removeIntent(uid, widget.match.id);
-      notifications.cancelReminder(widget.match.id.hashCode);
+      await attendance.removeIntent(uid, _match.id);
+      notifications.cancelReminder(_match.id.hashCode);
     } else {
-      await attendance.addIntent(uid, widget.match.id, reminderEnabled: true);
+      await attendance.addIntent(uid, _match.id, reminderEnabled: true);
       await notifications.scheduleMatchReminder(
-        id: widget.match.id.hashCode,
+        id: _match.id.hashCode,
         title: 'Матч сегодня',
-        body: '${widget.match.homeTeam} — ${widget.match.awayTeam}. Не забудьте включить геолокацию у стадиона.',
-        matchStart: widget.match.startTime,
+        body: '${_match.homeTeam} — ${_match.awayTeam}. Не забудьте включить геолокацию у стадиона.',
+        matchStart: _match.startTime,
       );
     }
     if (mounted) setState(() => _hasIntent = !_hasIntent);
@@ -71,14 +96,26 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
   Future<void> _checkLocationNow() async {
     final uid = context.read<AuthService>().currentUser?.uid;
     if (uid == null) return;
-    if (widget.match.stadium == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('У матча не указан стадион')));
+    if (_resolvingVenue) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Определяем координаты арены…')),
+      );
+      return;
+    }
+    if (_match.effectiveStadium == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Нет данных об арене для проверки геолокации. Для матчей из API укажите название арены или добавьте матч вручную в админке.',
+          ),
+        ),
+      );
       return;
     }
     final attendance = context.read<AttendanceService>();
-    if (!attendance.isWithinTimeWindow(widget.match.startTime)) {
-      final start = widget.match.startTime.subtract(Duration(minutes: minutesBeforeMatchStart));
-      final end = widget.match.startTime.add(Duration(minutes: minutesAfterMatchStart));
+    if (!attendance.isWithinTimeWindow(_match.startTime)) {
+      final start = _match.startTime.subtract(Duration(minutes: minutesBeforeMatchStart));
+      final end = _match.startTime.add(Duration(minutes: minutesAfterMatchStart));
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -91,7 +128,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
     setState(() => _checkingLocation = true);
     final location = context.read<LocationService>();
     try {
-      final recorded = await attendance.checkAndRecordAttendance(uid, widget.match, location);
+      final recorded = await attendance.checkAndRecordAttendance(uid, _match, location);
       if (!mounted) return;
       setState(() => _checkingLocation = false);
       if (recorded) {
@@ -113,9 +150,10 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final m = widget.match;
+    final m = _match;
     final dateFormat = DateFormat('dd.MM.yyyy HH:mm');
     final colorScheme = Theme.of(context).colorScheme;
+    final isExternal = m.source != MatchSource.firestore;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Матч')),
@@ -126,19 +164,43 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (isExternal)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Card(
+                        color: colorScheme.surfaceContainerHighest,
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Row(
+                            children: [
+                              Icon(Icons.cloud_outlined, color: colorScheme.primary),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  m.source == MatchSource.apiFootball
+                                      ? 'Матч из API-Football (api-sports.io)'
+                                      : 'Матч из football-data.org',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                   Card(
                     clipBehavior: Clip.antiAlias,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        if (m.stadium?.imageUrl != null && m.stadium!.imageUrl!.isNotEmpty)
+                        if (m.effectiveVenueImageUrl != null && m.effectiveVenueImageUrl!.isNotEmpty)
                           SizedBox(
                             height: 220,
                             child: Stack(
                               fit: StackFit.expand,
                               children: [
                                 Image.network(
-                                  m.stadium!.imageUrl!,
+                                  m.effectiveVenueImageUrl!,
                                   fit: BoxFit.cover,
                                   errorBuilder: (context, _, __) => Container(
                                     color: colorScheme.surfaceVariant,
@@ -191,8 +253,17 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
                                         ),
                                       ),
                                 ),
+                              if (m.apiStatusShort != null && m.apiStatusShort!.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Статус API: ${m.apiStatusShort}',
+                                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                        color: colorScheme.onSurfaceVariant,
+                                      ),
+                                ),
+                              ],
                               const SizedBox(height: 12),
-                              if (m.stadium?.imageUrl == null || m.stadium!.imageUrl!.isEmpty)
+                              if (m.effectiveVenueImageUrl == null || m.effectiveVenueImageUrl!.isEmpty)
                                 Text(
                                   '${m.homeTeam} — ${m.awayTeam}',
                                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
@@ -204,17 +275,22 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
                                 title: const Text('Дата и время'),
                                 subtitle: Text(dateFormat.format(m.startTime)),
                               ),
-                              if (m.stadium != null) ...[
+                              if (_resolvingVenue)
+                                const Padding(
+                                  padding: EdgeInsets.all(8),
+                                  child: LinearProgressIndicator(),
+                                ),
+                              if (m.effectiveStadium != null) ...[
                                 ListTile(
                                   leading: const Icon(Icons.place),
-                                  title: Text(m.stadium!.name),
-                                  subtitle: Text(m.stadium!.address ?? m.stadium!.city ?? ''),
+                                  title: Text(m.effectiveStadium!.name),
+                                  subtitle: Text(m.effectiveStadium!.address ?? m.effectiveStadium!.city ?? ''),
                                   trailing: IconButton(
                                     icon: const Icon(Icons.map),
-                                    onPressed: () => StadiumMapSheet.show(context, m.stadium!),
+                                    onPressed: () => StadiumMapSheet.show(context, m.effectiveStadium!),
                                   ),
                                 ),
-                                if (m.stadium!.mapImageUrl != null && m.stadium!.mapImageUrl!.isNotEmpty) ...[
+                                if (m.effectiveStadium!.mapImageUrl != null && m.effectiveStadium!.mapImageUrl!.isNotEmpty) ...[
                                   const SizedBox(height: 8),
                                   Align(
                                     alignment: Alignment.centerLeft,
@@ -229,7 +305,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
                                     child: AspectRatio(
                                       aspectRatio: 4 / 3,
                                       child: Image.network(
-                                        m.stadium!.mapImageUrl!,
+                                        m.effectiveStadium!.mapImageUrl!,
                                         fit: BoxFit.cover,
                                         errorBuilder: (context, _, __) => Container(
                                           color: colorScheme.surfaceVariant,
@@ -241,6 +317,22 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
                                     ),
                                   ),
                                 ],
+                              ] else if (m.venueDisplayLine != null) ...[
+                                ListTile(
+                                  leading: const Icon(Icons.place_outlined),
+                                  title: const Text('Арена'),
+                                  subtitle: Text(m.venueDisplayLine!),
+                                ),
+                                if (m.venueStatusLabel != null)
+                                  ListTile(
+                                    leading: const Icon(Icons.info_outline),
+                                    title: Text(
+                                      m.venueStatusLabel!,
+                                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                            color: colorScheme.error,
+                                          ),
+                                    ),
+                                  ),
                               ],
                             ],
                           ),
@@ -278,6 +370,8 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
                       label: const Text('Проверить геолокацию сейчас'),
                     ),
                   ],
+                  const SizedBox(height: 24),
+                  SeatViewsSection(matchId: m.id),
                 ],
               ),
             ),

@@ -178,7 +178,14 @@ class _MatchesAdminScreenState extends State<MatchesAdminScreen> {
   }
 
   Future<void> _showMatchForm(BuildContext context, {MatchModel? match}) async {
-    DateTime date = match?.startTime ?? DateTime.now().add(const Duration(days: 1));
+    final now = DateTime.now();
+    final defaultFuture = DateTime(now.year, now.month, now.day).add(const Duration(days: 1));
+    DateTime date = match?.startTime ?? defaultFuture;
+    var pastMode = false;
+    if (match != null) {
+      final matchEnd = match.startTime.add(const Duration(minutes: minutesAfterMatchStart));
+      pastMode = now.isAfter(matchEnd);
+    }
     final homeController = TextEditingController(text: match?.homeTeam ?? '');
     final awayController = TextEditingController(text: match?.awayTeam ?? '');
     final leagueController = TextEditingController(text: match?.league ?? '');
@@ -201,7 +208,38 @@ class _MatchesAdminScreenState extends State<MatchesAdminScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(match == null ? 'Новый матч' : 'Редактировать матч', style: Theme.of(context).textTheme.titleLarge),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
+                  SegmentedButton<bool>(
+                    segments: const [
+                      ButtonSegment<bool>(
+                        value: false,
+                        label: Text('Предстоящий'),
+                        icon: Icon(Icons.schedule, size: 18),
+                      ),
+                      ButtonSegment<bool>(
+                        value: true,
+                        label: Text('Прошедший'),
+                        icon: Icon(Icons.history, size: 18),
+                      ),
+                    ],
+                    selected: {pastMode},
+                    onSelectionChanged: (Set<bool> next) {
+                      setModalState(() {
+                        pastMode = next.first;
+                        if (pastMode) {
+                          if (!date.isBefore(now)) {
+                            date = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 1));
+                          }
+                        } else {
+                          final todayStart = DateTime(now.year, now.month, now.day);
+                          if (!date.isAfter(todayStart)) {
+                            date = todayStart.add(const Duration(days: 1));
+                          }
+                        }
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 12),
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -209,7 +247,9 @@ class _MatchesAdminScreenState extends State<MatchesAdminScreen> {
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: Text(
-                      'Заполните команды, логотипы и дату матча.',
+                      pastMode
+                          ? 'Дата и время в прошлом — матч попадёт в завершённые и в историю посещений.'
+                          : 'Заполните команды, логотипы и дату матча.',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ),
@@ -257,10 +297,31 @@ class _MatchesAdminScreenState extends State<MatchesAdminScreen> {
                     title: Text('Дата и время: ${DateFormat('dd.MM.yyyy HH:mm').format(date)}'),
                     trailing: const Icon(Icons.calendar_today),
                     onTap: () async {
-                      final d = await showDatePicker(context: context, initialDate: date, firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 365)));
+                      final todayStart = DateTime(now.year, now.month, now.day);
+                      final firstDate = pastMode
+                          ? now.subtract(const Duration(days: 365 * 15))
+                          : todayStart;
+                      final lastDate =
+                          pastMode ? now : todayStart.add(const Duration(days: 365 * 2));
+                      var initial = date;
+                      if (initial.isBefore(firstDate)) initial = firstDate;
+                      if (initial.isAfter(lastDate)) initial = lastDate;
+                      final d = await showDatePicker(
+                        context: context,
+                        initialDate: initial,
+                        firstDate: firstDate,
+                        lastDate: lastDate,
+                      );
                       if (d != null) {
-                        final t = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(date));
-                        if (t != null) setModalState(() => date = DateTime(d.year, d.month, d.day, t.hour, t.minute));
+                        final t = await showTimePicker(
+                          context: context,
+                          initialTime: TimeOfDay.fromDateTime(date),
+                        );
+                        if (t != null) {
+                          setModalState(() {
+                            date = DateTime(d.year, d.month, d.day, t.hour, t.minute);
+                          });
+                        }
                       }
                     },
                   ),

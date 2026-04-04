@@ -1,5 +1,12 @@
 # Project-level configuration.
 cmake_minimum_required(VERSION 3.14)
+
+# CMake 4.0+: Firebase C++ SDK (FlutterFire) тянет CMakeLists с очень старым minimum;
+# без этого флага конфигурация падает с "Compatibility with CMake < 3.5 has been removed".
+if(CMAKE_VERSION VERSION_GREATER_EQUAL "4.0")
+  set(CMAKE_POLICY_VERSION_MINIMUM 3.5 CACHE STRING "" FORCE)
+endif()
+
 project(attending_football_matches LANGUAGES CXX)
 
 # The name of the executable created for the application. Change this to change

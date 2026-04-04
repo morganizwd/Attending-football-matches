@@ -61,7 +61,7 @@ class AdminScreen extends StatelessWidget {
             child: ListTile(
               leading: const Icon(Icons.sports_soccer),
               title: const Text('Матчи'),
-              subtitle: const Text('Добавить и редактировать матчи'),
+              subtitle: const Text('Предстоящие и прошедшие матчи'),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MatchesAdminScreen())),
             ),

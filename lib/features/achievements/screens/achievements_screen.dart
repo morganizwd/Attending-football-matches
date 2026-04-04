@@ -40,14 +40,15 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
     final Map<String, int> byTeam = {};
     for (final a in list) {
       final matchDoc = await firestore.collection(FirestoreCollections.matches).doc(a.matchId).get();
-      if (!matchDoc.exists) continue;
-      final matchData = matchDoc.data() as Map<String, dynamic>? ?? {};
+      final matchData = matchDoc.exists
+          ? (matchDoc.data() ?? <String, dynamic>{})
+          : <String, dynamic>{};
       final stadiumId = matchData['stadiumId'] as String? ?? '';
       if (stadiumId.isNotEmpty) {
         byStadium[stadiumId] = (byStadium[stadiumId] ?? 0) + 1;
       }
-      final homeTeam = matchData['homeTeam'] as String? ?? '';
-      final awayTeam = matchData['awayTeam'] as String? ?? '';
+      final homeTeam = matchData['homeTeam'] as String? ?? a.matchHomeTeamSnapshot ?? '';
+      final awayTeam = matchData['awayTeam'] as String? ?? a.matchAwayTeamSnapshot ?? '';
       if (homeTeam.isNotEmpty) {
         byTeam[homeTeam] = (byTeam[homeTeam] ?? 0) + 1;
       }

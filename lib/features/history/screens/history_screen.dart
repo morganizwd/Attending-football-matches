@@ -45,6 +45,19 @@ class _HistoryScreenState extends State<HistoryScreen> {
             if (stadiumDoc.exists) stadium = Stadium.fromFirestore(stadiumDoc);
           }
           _matchCache[a.matchId] = MatchModel.fromFirestore(matchDoc, stadium: stadium);
+        } else {
+          final h = a.matchHomeTeamSnapshot;
+          final aw = a.matchAwayTeamSnapshot;
+          if (h != null && aw != null && h.isNotEmpty && aw.isNotEmpty) {
+            _matchCache[a.matchId] = MatchModel(
+              id: a.matchId,
+              homeTeam: h,
+              awayTeam: aw,
+              stadiumId: '',
+              startTime: a.verifiedAt,
+              league: a.matchLeagueSnapshot,
+            );
+          }
         }
       }
     }
@@ -108,7 +121,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       backgroundColor: colorScheme.primaryContainer,
                       child: Icon(Icons.sports_soccer, color: colorScheme.onPrimaryContainer),
                     ),
-                    title: Text(m?.title ?? 'Матч #${a.matchId}'),
+                    title: Text(m?.title ?? a.titleSnapshot ?? 'Матч #${a.matchId}'),
                     subtitle: Text('Подтверждено: ${dateFormat.format(a.verifiedAt)}'),
                     trailing: Icon(Icons.check_circle, color: colorScheme.tertiary),
                   ),
